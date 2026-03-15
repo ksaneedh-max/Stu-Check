@@ -1,11 +1,21 @@
 const service = require("./attendance.service");
 
 exports.getAttendance = async (req, res) => {
+
   try {
-    const data = await service.getAttendance();
+
+    const sessionId = req.session.id;
+
+    const data = await service.getAttendance(sessionId);
+
     res.json(data);
+
   } catch (err) {
-    console.log("ATTENDANCE ERROR:", err);
-    res.json({ error: "Attendance fetch failed" });
+
+    res.status(500).json({
+      error: err.message
+    });
+
   }
+
 };
