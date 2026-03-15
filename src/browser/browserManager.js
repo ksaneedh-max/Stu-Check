@@ -20,7 +20,8 @@ async function startBrowser() {
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage"
+      "--disable-dev-shm-usage",
+      "--disable-gpu"
     ]
   });
 
@@ -30,11 +31,11 @@ async function startBrowser() {
 async function createContextAndPage() {
   try {
     if (page && !page.isClosed()) await page.close();
-  } catch {}
+  } catch (e) {}
 
   try {
     if (context) await context.close();
-  } catch {}
+  } catch (e) {}
 
   const storageExists = fs.existsSync(STORAGE_FILE);
 
@@ -43,6 +44,9 @@ async function createContextAndPage() {
   );
 
   page = await context.newPage();
+
+  // Optional: prevent timeout issues on slow hosting
+  page.setDefaultTimeout(60000);
 }
 
 async function ensureBrowser() {
@@ -65,7 +69,7 @@ async function ensureBrowser() {
 
     try {
       if (browser) await browser.close();
-    } catch {}
+    } catch (e) {}
 
     browser = null;
     context = null;
