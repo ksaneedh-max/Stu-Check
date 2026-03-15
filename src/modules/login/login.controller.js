@@ -1,16 +1,56 @@
 const service = require("./login.service");
+const { ensureBrowser } = require("../../browser/browserManager");
+
+
+/* ---------- LOGIN ---------- */
 
 exports.login = async (req, res) => {
+
   try {
-    const result = await service.login(req.body);
+
+    const sessionId = req.session.id;
+
+    const result = await service.login(sessionId, req.body);
+
     res.json(result);
+
   } catch (err) {
+
     console.log("LOGIN ERROR:", err);
-    res.status(500).json({ error: "Login failed" });
+
+    res.status(500).json({
+      error: "Login failed"
+    });
+
   }
+
 };
 
+
+/* ---------- STATUS ---------- */
+
 exports.status = async (req, res) => {
-  const logged = await service.isLoggedIn();
-  res.json({ logged_in: logged });
+
+  try {
+
+    await ensureBrowser();
+
+    const sessionId = req.session.id;
+
+    const logged = await service.isLoggedIn(sessionId);
+
+    res.json({
+      logged_in: logged
+    });
+
+  } catch (err) {
+
+    console.log("STATUS CHECK ERROR:", err);
+
+    res.json({
+      logged_in: false
+    });
+
+  }
+
 };
