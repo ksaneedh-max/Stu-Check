@@ -1,0 +1,165 @@
+{
+  "cookies": [
+    {
+      "name": "zalb_74c3a1eecc",
+      "value": "d1f19ae45991430ca950a172adbb5b86",
+      "domain": "academia.srmist.edu.in",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "zccpn",
+      "value": "6a50f31e-44af-42d8-ab30-e7be1bc0cc25",
+      "domain": "academia.srmist.edu.in",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_zcsr_tmp",
+      "value": "6a50f31e-44af-42d8-ab30-e7be1bc0cc25",
+      "domain": "academia.srmist.edu.in",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Strict"
+    },
+    {
+      "name": "JSESSIONID",
+      "value": "CCEDB10C8F41224A308EAEFBF644B6D7",
+      "domain": "academia.srmist.edu.in",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "cli_rgn",
+      "value": "IN",
+      "domain": "academia.srmist.edu.in",
+      "path": "/",
+      "expires": 1773590207.773658,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_ga",
+      "value": "GA1.3.848639632.1773568608",
+      "domain": ".srmist.edu.in",
+      "path": "/",
+      "expires": 1808128652.587649,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_gid",
+      "value": "GA1.3.1017115436.1773568608",
+      "domain": ".srmist.edu.in",
+      "path": "/",
+      "expires": 1773655052,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_gat",
+      "value": "1",
+      "domain": ".srmist.edu.in",
+      "path": "/",
+      "expires": 1773568668,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "zalb_f0e8db9d3d",
+      "value": "983d6a65b2f29022f18db52385bfc639",
+      "domain": "academia.srmist.edu.in",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "stk",
+      "value": "fd9c1b45dea1fdfd40cbaf721e4500c8",
+      "domain": "academia.srmist.edu.in",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_ga_HQWPLLNMKY",
+      "value": "GS2.3.s1773568608$o1$g1$t1773568652$j16$l0$h0",
+      "domain": ".srmist.edu.in",
+      "path": "/",
+      "expires": 1808128652.668192,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "__Secure-iamsdt_client_10002227248",
+      "value": "0.EnQSMBqovzMZwe6iV27lyO6bVh43YJ5g6UfLCBj4P5UfAddakdKUjlOgRMaHJpXSDK0g1RpAKoE5NjJ7ssCn46NdauM85na9bF3-xunrRpAbj9Yj6qYLi8xXjvZdAldrc-LDGP1Pvbn7HOtKbfVXvIc0nLa7WA",
+      "domain": ".academia.srmist.edu.in",
+      "path": "/",
+      "expires": 1776592656.192495,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_iamadt_client_10002227248",
+      "value": "1aa8bf3319c1eea2576ee5c8ee9b561e37609e60e947cb0818f83f951f01d75a91d2948e53a044c6872695d20cad20d5",
+      "domain": ".academia.srmist.edu.in",
+      "path": "/",
+      "expires": 1776592656.192559,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_iambdt_client_10002227248",
+      "value": "2a813936327bb2c0a7e3a35d6ae33ce676bd6c5dfec6e9eb46901b8fd623eaa60b8bcc578ef65d02576b73e2c318fd4fbdb9fb1ceb4a6df557bc87349cb6bb58",
+      "domain": ".academia.srmist.edu.in",
+      "path": "/",
+      "expires": 1776592656.192583,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_z_identity",
+      "value": "true",
+      "domain": "academia.srmist.edu.in",
+      "path": "/",
+      "expires": 1773575856.192603,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "iamcsr",
+      "value": "17bdeb8ea968c25036b6e047e4bfcd1db0fcd1e0d802d3cb9db0c1b2d2ce3420b4466ed7ae4038aa4dbffad8a0ea5b553d2f5b54b37463530b9ef9ba64bb9b41",
+      "domain": "academia.srmist.edu.in",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    }
+  ],
+  "origins": []
+}
