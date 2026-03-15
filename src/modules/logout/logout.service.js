@@ -1,9 +1,8 @@
-const fs = require("fs");
-const { getPage, STORAGE_FILE } = require("../../browser/browserManager");
+const { getPage, destroySession } = require("../../browser/browserManager");
 
-async function logoutService() {
+async function logoutService(sessionId) {
 
-  const page = getPage();
+  const page = getPage(sessionId);
 
   if (!page) {
     return { status: "not_logged_in" };
@@ -13,31 +12,46 @@ async function logoutService() {
 
     console.log("Logging out from SRM...");
 
-    /* open profile menu */
+    /* ---------- OPEN PROFILE MENU ---------- */
+
     const profileMenu = page.locator("#zc-account-settings");
 
-    if (await profileMenu.count() > 0) {
-      await profileMenu.click();
+    if (await profileMenu.count()) {
+      await profileMenu.first().click();
       await page.waitForTimeout(1000);
     }
 
-    /* click logout */
+    /* ---------- CLICK LOGOUT ---------- */
+
     const logoutBtn = page.locator("#portalLogout");
 
-    if (await logoutBtn.count() > 0) {
-      await logoutBtn.click();
-      await page.waitForTimeout(3000);
+    if (await logoutBtn.count()) {
+
+      await logoutBtn.first().click();
+
+      console.log("SRM logout clicked");
+
+      /* wait briefly for logout redirect */
+
+      try {
+        await page.waitForNavigation({
+          timeout: 5000
+        });
+      } catch {
+        // navigation might not happen, that's okay
+      }
+
     }
 
-    /* clear stored session */
-    try {
-      if (fs.existsSync(STORAGE_FILE)) {
-        fs.unlinkSync(STORAGE_FILE);
-        console.log("Storage state cleared");
-      }
-    } catch {}
+    /* ---------- DESTROY SESSION ---------- */
 
-    return { status: "logged_out" };
+    await destroySession(sessionId);
+
+    console.log("Session destroyed:", sessionId);
+
+    return {
+      status: "logged_out"
+    };
 
   } catch (err) {
 
