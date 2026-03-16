@@ -1,10 +1,13 @@
 const express = require("express");
 const session = require("express-session");
+const FileStore = require("session-file-store")(session);
 
 const loginRoutes = require("./modules/login/login.route");
 const logoutRoutes = require("./modules/logout/logout.route");
+const profileRoutes = require("./modules/profile/profile.route");
 const attendanceRoutes = require("./modules/attendance/attendance.route");
 const marksRoutes = require("./modules/marks/marks.route");
+const timetableRoutes = require("./modules/timetable/timetable.route");
 
 const { isLoggedIn } = require("./modules/login/login.service");
 
@@ -25,13 +28,16 @@ app.use(express.static("public"));
 
 app.use(
   session({
+    store: new FileStore({
+      path: "./sessions"
+    }),
     secret: "srm-dashboard-secret",
     resave: false,
     saveUninitialized: true,
     cookie: {
-      secure: false, // change to true if using HTTPS
+      secure: false, // set true if HTTPS
       httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000 // 1 day
+      maxAge: 24 * 60 * 60 * 1000
     }
   })
 );
@@ -55,7 +61,6 @@ app.use((req, res, next) => {
 });
 
 /* ---------- ACTIVITY TRACKING ---------- */
-/* updates lastActivity so browser session won't expire */
 
 app.use((req, res, next) => {
 
@@ -77,21 +82,20 @@ app.get("/", (req, res) => {
 
 app.get("/status", async (req, res) => {
 
-  const sessionId = req.session?.id;
-
-  if (!sessionId) {
-    return res.json({ logged_in: false });
-  }
-
   try {
 
-    /* ---------- CREATE SESSION IF NOT EXISTS ---------- */
+    const sessionId = req.session?.id;
+
+    if (!sessionId) {
+      return res.json({ logged_in: false });
+    }
 
     let page = getPage(sessionId);
 
+    /* If server restarted, there will be no page in memory */
     if (!page) {
 
-      console.log("Creating browser session for:", sessionId);
+      console.log("Restoring browser session for:", sessionId);
 
       const session = await createSession(sessionId);
 
@@ -99,11 +103,10 @@ app.get("/status", async (req, res) => {
 
     }
 
-    /* ---------- CHECK LOGIN STATUS ---------- */
-
+    /* Now check login using restored session */
     const logged = await isLoggedIn(sessionId);
 
-    res.json({
+    return res.json({
       logged_in: logged
     });
 
@@ -111,7 +114,7 @@ app.get("/status", async (req, res) => {
 
     console.error("Status check failed:", err);
 
-    res.json({
+    return res.json({
       logged_in: false
     });
 
@@ -123,8 +126,10 @@ app.get("/status", async (req, res) => {
 
 app.use("/login", loginRoutes);
 app.use("/logout", logoutRoutes);
+app.use("/profile", profileRoutes);
 app.use("/attendance", attendanceRoutes);
 app.use("/marks", marksRoutes);
+app.use("/timetable", timetableRoutes);
 
 /* ---------- EXPORT ---------- */
 
