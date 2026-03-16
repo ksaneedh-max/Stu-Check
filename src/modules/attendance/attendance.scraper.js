@@ -2,21 +2,29 @@ exports.extract = async (page) => {
 
   let attendanceFrame = null;
 
-  /* ---------- FIND FRAME WITH ATTENDANCE TABLE ---------- */
+  /* ---------- TRY MULTIPLE TIMES UNTIL TABLE LOADS ---------- */
 
-  for (const frame of page.frames()) {
+  for (let attempt = 0; attempt < 10; attempt++) {
 
-    try {
+    for (const frame of page.frames()) {
 
-      const rows = await frame.locator("table tbody tr").count();
+      try {
 
-      if (rows > 0) {
-        attendanceFrame = frame;
-        break;
-      }
+        const rows = await frame.locator("table tbody tr").count();
 
-    } catch {}
+        if (rows > 1) {
+          attendanceFrame = frame;
+          break;
+        }
 
+      } catch {}
+
+    }
+
+    if (attendanceFrame) break;
+
+    /* wait a bit before retry */
+    await page.waitForTimeout(300);
   }
 
   if (!attendanceFrame) {
@@ -31,11 +39,11 @@ exports.extract = async (page) => {
 
     const data = [];
 
-    rows.forEach(row => {
+    rows.forEach((row, index) => {
+
+      if (index === 0) return; // skip header
 
       const cols = row.querySelectorAll("td");
-
-      /* ---------- SKIP HEADER OR INVALID ROWS ---------- */
 
       if (!cols || cols.length < 9) return;
 
@@ -52,11 +60,7 @@ exports.extract = async (page) => {
       const conducted = parseInt(conductedText);
       const absent = parseInt(absentText);
 
-      /* ---------- IGNORE BAD ROWS ---------- */
-
-      if (isNaN(conducted) || code === "" || title === "") {
-        return;
-      }
+      if (isNaN(conducted) || code === "" || title === "") return;
 
       data.push({
         code,
