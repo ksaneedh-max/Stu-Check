@@ -6,9 +6,9 @@ const { PORTAL_URL } = require("../config/env");
 
 /* ---------- CONFIG ---------- */
 
-const BROWSER_TIMEOUT = 5 * 60 * 1000; // 5 minutes
-const STORAGE_TIMEOUT = 24 * 60 * 60 * 1000; // 1 day
-const CLEANUP_INTERVAL = 60 * 1000; // 1 minute
+const BROWSER_TIMEOUT = 5 * 60 * 1000;
+const STORAGE_TIMEOUT = 24 * 60 * 60 * 1000;
+const CLEANUP_INTERVAL = 60 * 1000;
 
 const STORAGE_DIR = path.resolve(__dirname, "../../storage");
 
@@ -18,6 +18,15 @@ let browser = null;
 
 /* sessionId -> { context, page, storageFile, lastActivity } */
 const sessions = new Map();
+
+/* prevents duplicate session creation */
+const sessionLocks = new Map();
+
+/* ---------- ENSURE STORAGE DIR ---------- */
+
+if (!fs.existsSync(STORAGE_DIR)) {
+  fs.mkdirSync(STORAGE_DIR, { recursive: true });
+}
 
 /* ---------- START BROWSER ---------- */
 
@@ -37,6 +46,12 @@ async function startBrowser() {
     ]
   });
 
+  browser.on("disconnected", () => {
+    console.log("Browser crashed/disconnected");
+    browser = null;
+    sessions.clear();
+  });
+
   console.log("Browser launched");
 
 }
@@ -46,11 +61,7 @@ async function startBrowser() {
 async function ensureBrowser() {
 
   if (!browser || !browser.isConnected()) {
-
-    console.log("Browser missing or crashed, restarting...");
-
     await startBrowser();
-
   }
 
 }
@@ -61,105 +72,138 @@ async function createSession(sessionId) {
 
   await ensureBrowser();
 
+  /* return existing session */
+
   if (sessions.has(sessionId)) {
 
     const session = sessions.get(sessionId);
     session.lastActivity = Date.now();
-
     return session;
 
   }
 
-  console.log("Creating new session:", sessionId);
+  /* prevent duplicate creation */
 
-  const storageFile = path.resolve(
-    STORAGE_DIR,
-    `session_${sessionId}.json`
-  );
+  if (sessionLocks.has(sessionId)) {
+    return sessionLocks.get(sessionId);
+  }
 
-  const storageExists = fs.existsSync(storageFile);
+  const promise = (async () => {
 
-  let context;
+    console.log("Creating new session:", sessionId);
 
-  try {
-
-    context = await browser.newContext(
-      storageExists ? { storageState: storageFile } : {}
+    const storageFile = path.resolve(
+      STORAGE_DIR,
+      `session_${sessionId}.json`
     );
 
-  } catch (err) {
+    const storageExists = fs.existsSync(storageFile);
 
-    console.log("Storage load failed, starting fresh session");
+    let context;
 
     try {
-      fs.unlinkSync(storageFile);
-    } catch {}
 
-    context = await browser.newContext();
+      context = await browser.newContext(
+        storageExists ? { storageState: storageFile } : {}
+      );
 
-  }
+    } catch (err) {
 
-  const page = await context.newPage();
+      console.log("Storage load failed, starting fresh session");
 
-  /* ---------- PAGE OPTIMIZATIONS ---------- */
+      try { fs.unlinkSync(storageFile); } catch {}
 
-  page.setDefaultTimeout(15000);
+      context = await browser.newContext();
 
-  await page.route("**/*", route => {
-
-    const type = route.request().resourceType();
-
-    if (
-      type === "image" ||
-      type === "font" ||
-      type === "media"
-    ) {
-      return route.abort();
     }
 
-    route.continue();
+    const page = await context.newPage();
 
-  });
+    page.setDefaultTimeout(15000);
 
-  try {
+    /* ---------- RESOURCE OPTIMIZATION ---------- */
 
-    await page.addStyleTag({
-      content: `
-        * {
-          animation-duration: 0s !important;
-          transition-duration: 0s !important;
-        }
-      `
+    await page.route("**/*", route => {
+
+      const type = route.request().resourceType();
+
+      if (
+        type === "image" ||
+        type === "font" ||
+        type === "media"
+      ) {
+        return route.abort();
+      }
+
+      route.continue();
+
     });
 
-  } catch {}
+    /* ---------- DISABLE ANIMATIONS ---------- */
 
-  /* ---------- OPEN PORTAL ---------- */
+    try {
 
-  try {
+      await page.addStyleTag({
+        content: `
+          * {
+            animation-duration: 0s !important;
+            transition-duration: 0s !important;
+          }
+        `
+      });
 
-    console.log("Opening SRM portal for:", sessionId);
+    } catch {}
 
-    await page.goto(PORTAL_URL, {
-      waitUntil: "domcontentloaded"
-    });
+    /* ---------- OPEN PORTAL ---------- */
 
-  } catch (err) {
+    try {
 
-    console.log("Portal load failed:", err.message);
+      console.log("Opening portal for:", sessionId);
 
+      await page.goto(PORTAL_URL, {
+        waitUntil: "domcontentloaded"
+      });
+
+    } catch (err) {
+
+      console.log("Portal load failed:", err.message);
+
+    }
+
+    const session = {
+      context,
+      page,
+      storageFile,
+      lastActivity: Date.now()
+    };
+
+    sessions.set(sessionId, session);
+
+    return session;
+
+  })();
+
+  sessionLocks.set(sessionId, promise);
+
+  const result = await promise;
+
+  sessionLocks.delete(sessionId);
+
+  return result;
+
+}
+
+/* ---------- ENSURE PAGE READY ---------- */
+
+async function ensurePageReady(page) {
+
+  if (!page || page.isClosed()) {
+    throw new Error("Browser page not available");
   }
 
-  const session = {
-    context,
-    page,
-    storageFile,
-    lastActivity: Date.now()
-  };
-
-  sessions.set(sessionId, session);
-
-  return session;
+  try {
+    await page.waitForLoadState("domcontentloaded");
+  } catch {}
 
 }
 
@@ -231,7 +275,7 @@ async function destroySession(sessionId) {
 
   if (!session) return;
 
-  console.log("Destroying browser session:", sessionId);
+  console.log("Destroying session:", sessionId);
 
   try {
     await session.context.close();
@@ -263,9 +307,7 @@ function cleanupStorage() {
 
         console.log("Deleting expired storage:", file);
 
-        try {
-          fs.unlinkSync(filePath);
-        } catch {}
+        try { fs.unlinkSync(filePath); } catch {}
 
       }
 
@@ -310,16 +352,12 @@ async function shutdownBrowser() {
   console.log("Closing browser...");
 
   for (const [sessionId] of sessions) {
-
     await destroySession(sessionId);
-
   }
 
   if (browser) {
 
-    try {
-      await browser.close();
-    } catch {}
+    try { await browser.close(); } catch {}
 
     browser = null;
 
@@ -339,5 +377,6 @@ module.exports = {
   destroySession,
   touchSession,
   sessionCount,
-  shutdownBrowser
+  shutdownBrowser,
+  ensurePageReady
 };
