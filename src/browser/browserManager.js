@@ -28,7 +28,7 @@ async function startBrowser() {
   console.log("Launching Chromium...");
 
   browser = await chromium.launch({
-    headless: true,
+    headless: false,
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
