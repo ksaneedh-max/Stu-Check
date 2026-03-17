@@ -14,6 +14,29 @@ const {
 } = require("./login.scraper");
 
 
+/* ---------- EMAIL NORMALIZER ---------- */
+
+function normalizeEmail(email) {
+
+  if (!email) return null;
+
+  email = email.trim().toLowerCase();
+
+  /* if user entered only username */
+  if (!email.includes("@")) {
+    email = email + "@srmist.edu.in";
+  }
+
+  /* if wrong domain */
+  if (!email.endsWith("@srmist.edu.in")) {
+    email = email.split("@")[0] + "@srmist.edu.in";
+  }
+
+  return email;
+
+}
+
+
 /* ---------- LOGIN CHECK ---------- */
 
 async function isLoggedIn(sessionId) {
@@ -50,6 +73,7 @@ async function isLoggedIn(sessionId) {
   } catch (err) {
 
     console.log("Login check failed:", err.message);
+
     return false;
 
   }
@@ -64,8 +88,16 @@ async function login(sessionId, { email, password }) {
   await ensureBrowser();
 
   if (!email || !password) {
-    throw new Error("email and password required");
+
+    return {
+      error: "INVALID_INPUT",
+      message: "Email and password are required"
+    };
+
   }
+
+  /* normalize email */
+  email = normalizeEmail(email);
 
   const session = await createSession(sessionId);
   const page = session.page;
@@ -75,10 +107,35 @@ async function login(sessionId, { email, password }) {
   const logged = await isLoggedIn(sessionId);
 
   if (logged) {
-    return { status: "already_logged_in" };
+
+    return {
+      status: "already_logged_in"
+    };
+
   }
 
-  await performLogin(page, { email, password });
+  /* perform login */
+
+  const result = await performLogin(page, { email, password });
+
+  /* if scraper returned error */
+
+  if (result?.error) {
+    return result;
+  }
+
+  /* ensure login success */
+
+  if (!result?.success) {
+
+    return {
+      error: "LOGIN_FAILED",
+      message: "Invalid email or password"
+    };
+
+  }
+
+  /* login success */
 
   await saveSession(sessionId);
 

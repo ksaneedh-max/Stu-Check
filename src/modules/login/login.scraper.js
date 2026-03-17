@@ -133,20 +133,38 @@ async function performLogin(page, { email, password }) {
   ]);
 
   if (!passwordField) {
-    throw new Error("Password field not found");
+    return {
+      error: "EMAIL_ERROR",
+      message: "Invalid email address"
+    };
   }
 
   await passwordField.fill(password);
 
   await nextBtn.click();
 
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(3000);
 
   await handleSessionLimit(page);
 
   try {
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("networkidle", { timeout: 8000 });
   } catch {}
+
+  /* ---------- LOGIN RESULT CHECK ---------- */
+
+  const url = page.url();
+
+  if (url.includes("#WELCOME")) {
+
+    return { success: true };
+
+  }
+
+  return {
+    error: "LOGIN_FAILED",
+    message: "Invalid email or password"
+  };
 
 }
 
