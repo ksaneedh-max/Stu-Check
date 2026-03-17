@@ -2,7 +2,6 @@ const { ensureBrowser, getPage } = require("../../browser/browserManager");
 const scraper = require("./attendance.scraper");
 const PQueue = require("p-queue").default;
 
-/* ---------- SCRAPER QUEUE ---------- */
 const queue = new PQueue({ concurrency: 5 });
 
 async function getAttendance(sessionId) {
@@ -17,50 +16,14 @@ async function getAttendance(sessionId) {
 
   return queue.add(async () => {
 
-    /* ---------- OPEN ATTENDANCE PAGE ---------- */
+    /* ---------- NAVIGATE ---------- */
 
-    await page.evaluate((hash) => {
-      location.hash = hash;
-    }, "Page:My_Attendance");
-    await page.waitForTimeout(1000);
+    await page.evaluate(() => {
+      location.hash = "Page:My_Attendance";
+    });
 
-
-    /* ---------- WAIT FOR NETWORK TO SETTLE ---------- */
-
-    await page.waitForLoadState("networkidle");
-
-
-    /* ---------- WAIT UNTIL ATTENDANCE TABLE LOADS ---------- */
-
-    let attendanceFrame = null;
-
-    for (let attempt = 0; attempt < 40; attempt++) {
-
-      for (const frame of page.frames()) {
-
-        try {
-
-          const rowCount = await frame.locator("table tbody tr").count();
-
-          if (rowCount > 1) {
-            attendanceFrame = frame;
-            break;
-          }
-
-        } catch {}
-
-      }
-
-      if (attendanceFrame) break;
-
-      await page.waitForTimeout(250);
-    }
-
-    if (!attendanceFrame) {
-      throw new Error("Attendance table failed to load");
-    }
-
-    /* ---------- RUN SCRAPER ---------- */
+    /* wait for iframe refresh */
+    await page.waitForTimeout(1500);
 
     return scraper.extract(page);
 

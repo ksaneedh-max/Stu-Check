@@ -1,18 +1,21 @@
 exports.extract = async (page) => {
 
-  let attendanceFrame = null;
+  try {
 
-  /* ---------- TRY MULTIPLE TIMES UNTIL TABLE LOADS ---------- */
+    let attendanceFrame = null;
 
-  for (let attempt = 0; attempt < 10; attempt++) {
+    /* ---------- FIND FRAME ---------- */
 
     for (const frame of page.frames()) {
 
       try {
 
-        const rows = await frame.locator("table tbody tr").count();
+        const table = await frame.waitForSelector(
+          "table tbody tr",
+          { timeout: 5000 }
+        );
 
-        if (rows > 1) {
+        if (table) {
           attendanceFrame = frame;
           break;
         }
@@ -21,62 +24,63 @@ exports.extract = async (page) => {
 
     }
 
-    if (attendanceFrame) break;
+    if (!attendanceFrame) {
+      throw new Error("Attendance table not found");
+    }
 
-    /* wait a bit before retry */
-    await page.waitForTimeout(300);
-  }
+    /* ---------- SCRAPE ---------- */
 
-  if (!attendanceFrame) {
+    const courses = await attendanceFrame.$$eval(
+      "table tbody tr",
+      (rows) => {
+
+        const data = [];
+
+        rows.forEach((row, index) => {
+
+          if (index === 0) return;
+
+          const cols = row.querySelectorAll("td");
+          if (cols.length < 9) return;
+
+          const code = cols[0].innerText.trim();
+          const title = cols[1].innerText.trim();
+          const faculty = cols[3].innerText.trim();
+          const slot = cols[4].innerText.trim();
+          const room = cols[5].innerText.trim();
+
+          const conducted = parseInt(cols[6].innerText.trim());
+          const absent = parseInt(cols[7].innerText.trim());
+          const attendance = cols[8].innerText.trim();
+
+          if (!code || !title || isNaN(conducted)) return;
+
+          data.push({
+            code,
+            title,
+            faculty,
+            slot,
+            room,
+            conducted,
+            absent,
+            attendance
+          });
+
+        });
+
+        return data;
+
+      }
+    );
+
+    return { courses };
+
+  } catch (err) {
+
+    console.error("Attendance scrape error:", err.message);
+
     return { courses: [] };
+
   }
-
-  /* ---------- SCRAPE DATA ---------- */
-
-  return attendanceFrame.evaluate(() => {
-
-    const rows = document.querySelectorAll("table tbody tr");
-
-    const data = [];
-
-    rows.forEach((row, index) => {
-
-      if (index === 0) return; // skip header
-
-      const cols = row.querySelectorAll("td");
-
-      if (!cols || cols.length < 9) return;
-
-      const code = cols[0].innerText.trim();
-      const title = cols[1].innerText.trim();
-      const faculty = cols[3].innerText.trim();
-      const slot = cols[4].innerText.trim();
-      const room = cols[5].innerText.trim();
-
-      const conductedText = cols[6].innerText.trim();
-      const absentText = cols[7].innerText.trim();
-      const attendanceText = cols[8].innerText.trim();
-
-      const conducted = parseInt(conductedText);
-      const absent = parseInt(absentText);
-
-      if (isNaN(conducted) || code === "" || title === "") return;
-
-      data.push({
-        code,
-        title,
-        faculty,
-        slot,
-        room,
-        conducted,
-        absent,
-        attendance: attendanceText
-      });
-
-    });
-
-    return { courses: data };
-
-  });
 
 };
