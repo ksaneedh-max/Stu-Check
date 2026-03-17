@@ -4,25 +4,35 @@ const { PORTAL_URL } = require("../../config/env");
 
 async function findField(page, selectors) {
 
+  /* fast path */
   for (const sel of selectors) {
 
-    const el = page.locator(sel);
+    try {
 
-    if (await el.count()) {
-      return el.first();
-    }
-
-  }
-
-  for (const frame of page.frames()) {
-
-    for (const sel of selectors) {
-
-      const el = frame.locator(sel);
+      const el = page.locator(sel);
 
       if (await el.count()) {
         return el.first();
       }
+
+    } catch {}
+
+  }
+
+  /* frame search */
+  for (const frame of page.frames()) {
+
+    for (const sel of selectors) {
+
+      try {
+
+        const el = frame.locator(sel);
+
+        if (await el.count()) {
+          return el.first();
+        }
+
+      } catch {}
 
     }
 
@@ -39,8 +49,6 @@ async function handleSessionLimit(page) {
 
   try {
 
-    await page.waitForTimeout(3000);
-
     const terminateScreen = page.locator("#continue_button");
 
     if (await terminateScreen.count()) {
@@ -49,16 +57,12 @@ async function handleSessionLimit(page) {
 
       await terminateScreen.first().click();
 
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(1500);
 
       const confirmPopup = page.locator(".confirm-delete_btn");
 
       if (await confirmPopup.count()) {
-
         await confirmPopup.first().click();
-
-        await page.waitForTimeout(2000);
-
       }
 
     }
@@ -95,7 +99,10 @@ async function performLogin(page, { email, password }) {
     waitUntil: "domcontentloaded"
   });
 
-  await page.waitForTimeout(3000);
+  /* small settle delay */
+  await page.waitForTimeout(1500);
+
+  /* ---------- EMAIL FIELD ---------- */
 
   const emailField = await findField(page, [
     "#login_id",
@@ -124,31 +131,50 @@ async function performLogin(page, { email, password }) {
 
   await nextBtn.click();
 
-  await page.waitForTimeout(2000);
+  /* ---------- PASSWORD FIELD ---------- */
 
-  const passwordField = await findField(page, [
-    "#password",
-    'input[name="PASSWORD"]',
-    'input[type="password"]'
-  ]);
+  let passwordField = null;
+
+  for (let i = 0; i < 6; i++) {
+
+    passwordField = await findField(page, [
+      "#password",
+      'input[name="PASSWORD"]',
+      'input[type="password"]'
+    ]);
+
+    if (passwordField) break;
+
+    await page.waitForTimeout(500);
+
+  }
 
   if (!passwordField) {
+
     return {
       error: "EMAIL_ERROR",
       message: "Invalid email address"
     };
+
   }
 
   await passwordField.fill(password);
 
   await nextBtn.click();
 
-  await page.waitForTimeout(3000);
+  /* ---------- SESSION LIMIT ---------- */
 
   await handleSessionLimit(page);
 
+  /* ---------- WAIT FOR RESULT ---------- */
+
   try {
-    await page.waitForLoadState("networkidle", { timeout: 8000 });
+
+    await page.waitForFunction(() => {
+      return location.href.includes("#WELCOME") ||
+             document.querySelector("#login_id") !== null;
+    }, { timeout: 10000 });
+
   } catch {}
 
   /* ---------- LOGIN RESULT CHECK ---------- */
