@@ -1,15 +1,15 @@
-exports.extract = async (page) => {
+exports.extractProfile = async (page) => {
 
-  let marksFrame = null;
+  let profileFrame = null;
 
-  /* ---------- FAST PATH (table on main page) ---------- */
+  /* ---------- FAST PATH ---------- */
 
   try {
 
-    const tables = await page.locator("table").count();
+    const table = await page.waitForSelector("table", { timeout: 5000 });
 
-    if (tables > 1) {
-      marksFrame = page;
+    if (table) {
+      profileFrame = page;
     }
 
   } catch {}
@@ -18,49 +18,19 @@ exports.extract = async (page) => {
 
   /* ---------- FRAME SEARCH ---------- */
 
-  if (!marksFrame) {
-
-    for (let i = 0; i < 8; i++) {
-
-      for (const frame of page.frames()) {
-
-        try {
-
-          const tables = await frame.locator("table").count();
-
-          if (tables > 1) {
-            marksFrame = frame;
-            break;
-          }
-
-        } catch {}
-
-      }
-
-      if (marksFrame) break;
-
-      await page.waitForTimeout(300);
-
-    }
-
-  }
-
-
-
-  /* ---------- SLOW NETWORK FALLBACK ---------- */
-
-  if (!marksFrame) {
-
-    await page.waitForTimeout(2000);
+  if (!profileFrame) {
 
     for (const frame of page.frames()) {
 
       try {
 
-        const tables = await frame.locator("table").count();
+        const table = await frame.waitForSelector(
+          "table",
+          { timeout: 4000 }
+        );
 
-        if (tables > 0) {
-          marksFrame = frame;
+        if (table) {
+          profileFrame = frame;
           break;
         }
 
@@ -72,8 +42,33 @@ exports.extract = async (page) => {
 
 
 
-  if (!marksFrame) {
-    return { subjects: [] };
+  /* ---------- SLOW NETWORK FALLBACK ---------- */
+
+  if (!profileFrame) {
+
+    await page.waitForTimeout(3000);
+
+    for (const frame of page.frames()) {
+
+      try {
+
+        const table = await frame.$("table");
+
+        if (table) {
+          profileFrame = frame;
+          break;
+        }
+
+      } catch {}
+
+    }
+
+  }
+
+
+
+  if (!profileFrame) {
+    return {};
   }
 
 
@@ -82,16 +77,36 @@ exports.extract = async (page) => {
 
   try {
 
-    await marksFrame.waitForSelector(
-      "table > tbody > tr",
-      { timeout: 15000 }
-    );
+    await profileFrame.waitForFunction(() => {
+
+      const rows = document.querySelectorAll("table tbody tr");
+      return rows.length > 2;
+
+    }, { timeout: 15000 });
 
   } catch {
 
-    return { subjects: [] };
+    return {};
 
   }
+
+
+
+  /* ---------- WAIT FOR VALUES ---------- */
+
+  try {
+
+    await profileFrame.waitForFunction(() => {
+
+      const cells = document.querySelectorAll("table tbody td");
+
+      return Array.from(cells).some(td =>
+        td.innerText.trim() !== ""
+      );
+
+    }, { timeout: 10000 });
+
+  } catch {}
 
 
 
@@ -101,65 +116,51 @@ exports.extract = async (page) => {
 
 
 
-  /* ---------- SCRAPE DATA ---------- */
+  /* ---------- SCRAPE PROFILE ---------- */
 
-  const data = await marksFrame.evaluate(() => {
+  const profile = await profileFrame.evaluate(() => {
 
-    const rows = document.querySelectorAll("table > tbody > tr");
+    const profile = {};
 
-    const results = [];
+    const rows = document.querySelectorAll("table tbody tr");
 
-    rows.forEach((row, index) => {
-
-      if (index === 0) return;
+    rows.forEach(row => {
 
       const cols = row.querySelectorAll("td");
 
-      if (cols.length < 3) return;
+      for (let i = 0; i < cols.length; i += 2) {
 
-      const code = cols[0].innerText.trim();
-      const type = cols[1].innerText.trim();
-      const perfCell = cols[2];
+        const label = cols[i]?.innerText.trim();
+        const value = cols[i + 1]?.innerText.trim();
 
-      const subject = {
-        code,
-        title: code + " (" + type + ")",
-        components: [],
-        total: 0,
-        max: 0
-      };
+        if (!label || !value) continue;
 
-      const compCells = perfCell.querySelectorAll("td");
+        if (label.includes("Registration Number"))
+          profile.regNo = value;
 
-      compCells.forEach(cell => {
+        if (label.includes("Name"))
+          profile.name = value;
 
-        const strong = cell.querySelector("strong");
+        if (label.includes("Batch"))
+          profile.batch = value;
 
-        if (!strong) return;
+        if (label.includes("Mobile"))
+          profile.mobile = value;
 
-        const header = strong.innerText.trim();
-        const scoreText = cell.innerText.replace(header, "").trim();
+        if (label.includes("Program"))
+          profile.program = value;
 
-        const parts = header.split("/");
+        if (label.includes("Department"))
+          profile.department = value;
 
-        const name = parts[0];
-        const max = parseFloat(parts[1]) || 0;
-        const score = parseFloat(scoreText) || 0;
+        if (label.includes("Semester"))
+          profile.semester = value;
 
-        subject.components.push({ name, score, max });
-
-        subject.total += score;
-        subject.max += max;
-
-      });
-
-      if (subject.components.length > 0) {
-        results.push(subject);
       }
 
     });
 
-    return results;
+    return profile;
 
   });
 
@@ -167,49 +168,47 @@ exports.extract = async (page) => {
 
   /* ---------- VALIDATION FALLBACK ---------- */
 
-  if (!data || data.length === 0) {
+  if (!profile.name) {
 
     await page.waitForTimeout(1000);
 
-    const retryRows = await marksFrame.locator("table > tbody > tr").count();
+    const retry = await profileFrame.evaluate(() => {
 
-    if (retryRows > 1) {
+      const rows = document.querySelectorAll("table tbody tr");
 
-      return marksFrame.evaluate(() => {
+      const profile = {};
 
-        const rows = document.querySelectorAll("table > tbody > tr");
+      rows.forEach(row => {
 
-        const results = [];
+        const cols = row.querySelectorAll("td");
 
-        rows.forEach((row, index) => {
+        for (let i = 0; i < cols.length; i += 2) {
 
-          if (index === 0) return;
+          const label = cols[i]?.innerText.trim();
+          const value = cols[i + 1]?.innerText.trim();
 
-          const cols = row.querySelectorAll("td");
+          if (!label || !value) continue;
 
-          if (cols.length < 3) return;
+          if (label.includes("Name"))
+            profile.name = value;
 
-          const code = cols[0].innerText.trim();
-          const type = cols[1].innerText.trim();
+          if (label.includes("Registration Number"))
+            profile.regNo = value;
 
-          results.push({
-            code,
-            title: code + " (" + type + ")",
-            components: []
-          });
-
-        });
-
-        return { subjects: results };
+        }
 
       });
 
-    }
+      return profile;
+
+    });
+
+    return retry;
 
   }
 
 
 
-  return { subjects: data };
+  return profile;
 
 };
