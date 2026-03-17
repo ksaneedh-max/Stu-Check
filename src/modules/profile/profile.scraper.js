@@ -1,34 +1,124 @@
 exports.extractProfile = async (page) => {
 
-  /* ---------- WAIT FOR PROFILE TABLE ---------- */
+  let profileFrame = null;
+
+  /* ---------- FAST PATH ---------- */
 
   try {
-    await page.waitForSelector("table", { timeout: 15000 });
-  } catch {
+
+    const table = await page.waitForSelector("table", { timeout: 5000 });
+
+    if (table) {
+      profileFrame = page;
+    }
+
+  } catch {}
+
+
+
+  /* ---------- FRAME SEARCH ---------- */
+
+  if (!profileFrame) {
+
+    for (const frame of page.frames()) {
+
+      try {
+
+        const table = await frame.waitForSelector(
+          "table",
+          { timeout: 4000 }
+        );
+
+        if (table) {
+          profileFrame = frame;
+          break;
+        }
+
+      } catch {}
+
+    }
+
+  }
+
+
+
+  /* ---------- SLOW NETWORK FALLBACK ---------- */
+
+  if (!profileFrame) {
+
+    await page.waitForTimeout(3000);
+
+    for (const frame of page.frames()) {
+
+      try {
+
+        const table = await frame.$("table");
+
+        if (table) {
+          profileFrame = frame;
+          break;
+        }
+
+      } catch {}
+
+    }
+
+  }
+
+
+
+  if (!profileFrame) {
     return {};
   }
 
+
+
   /* ---------- WAIT FOR ROWS ---------- */
 
-  await page.waitForFunction(() => {
-    const rows = document.querySelectorAll("table tbody tr");
-    return rows.length > 2;
-  });
+  try {
 
-  /* ---------- WAIT FOR VALUES TO POPULATE ---------- */
+    await profileFrame.waitForFunction(() => {
 
-  await page.waitForFunction(() => {
-    const cells = document.querySelectorAll("table tbody td");
-    return Array.from(cells).some(td => td.innerText.trim() !== "");
-  });
+      const rows = document.querySelectorAll("table tbody tr");
+      return rows.length > 2;
+
+    }, { timeout: 15000 });
+
+  } catch {
+
+    return {};
+
+  }
+
+
+
+  /* ---------- WAIT FOR VALUES ---------- */
+
+  try {
+
+    await profileFrame.waitForFunction(() => {
+
+      const cells = document.querySelectorAll("table tbody td");
+
+      return Array.from(cells).some(td =>
+        td.innerText.trim() !== ""
+      );
+
+    }, { timeout: 10000 });
+
+  } catch {}
+
+
 
   /* ---------- STABILIZATION DELAY ---------- */
 
   await page.waitForTimeout(300);
 
+
+
   /* ---------- SCRAPE PROFILE ---------- */
 
-  return page.evaluate(() => {
+  const profile = await profileFrame.evaluate(() => {
 
     const profile = {};
 
@@ -73,5 +163,52 @@ exports.extractProfile = async (page) => {
     return profile;
 
   });
+
+
+
+  /* ---------- VALIDATION FALLBACK ---------- */
+
+  if (!profile.name) {
+
+    await page.waitForTimeout(1000);
+
+    const retry = await profileFrame.evaluate(() => {
+
+      const rows = document.querySelectorAll("table tbody tr");
+
+      const profile = {};
+
+      rows.forEach(row => {
+
+        const cols = row.querySelectorAll("td");
+
+        for (let i = 0; i < cols.length; i += 2) {
+
+          const label = cols[i]?.innerText.trim();
+          const value = cols[i + 1]?.innerText.trim();
+
+          if (!label || !value) continue;
+
+          if (label.includes("Name"))
+            profile.name = value;
+
+          if (label.includes("Registration Number"))
+            profile.regNo = value;
+
+        }
+
+      });
+
+      return profile;
+
+    });
+
+    return retry;
+
+  }
+
+
+
+  return profile;
 
 };
